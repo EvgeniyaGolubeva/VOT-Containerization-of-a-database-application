@@ -1,9 +1,20 @@
 from flask import Flask, request, jsonify, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
+import os
+from flask_cors import CORS
 
 # Initialize Flask app
 app = Flask(__name__, static_folder='../static')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:testpass@localhost/app_db'
+
+# Enable CORS for all routes
+CORS(app)
+
+# Database configuration
+#app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
+#    'SQLALCHEMY_DATABASE_URI',
+#    'mysql+pymysql://root:testpass@db/app_db'  # Fallback for local testing
+#)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:testpass@db/app_db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize SQLAlchemy
@@ -16,6 +27,14 @@ class Category(db.Model):
     time = db.Column(db.Integer, nullable=False, default=0)
 
 # Routes
+@app.route('/')
+def serve_frontend():
+    return send_from_directory(app.static_folder, 'index.html')
+
+@app.route('/<path:path>', methods=['GET'])
+def serve_static_files(path):
+    return send_from_directory(app.static_folder, path)
+
 @app.route('/categories', methods=['GET', 'POST'])
 def manage_categories():
     try:
@@ -29,11 +48,9 @@ def manage_categories():
         else:
             # Handle fetching all categories
             categories = Category.query.all()
-            if not categories:  # Debug log for empty table
-                print("No categories found in the database.")
             return jsonify([{'id': c.id, 'name': c.name, 'time': c.time} for c in categories])
     except Exception as e:
-        print("Error in /categories route:", str(e))  # Log the error for debugging
+        print("Error in /categories route:", str(e))
         return jsonify({'error': 'Internal Server Error'}), 500
 
 
@@ -60,7 +77,6 @@ def update_category_time(category_id):
         print("Error in /categories/<int:category_id> route:", str(e))
         return jsonify({'error': str(e)}), 500
 
-
 @app.route('/seed', methods=['POST'])
 def seed_data():
     try:
@@ -73,20 +89,12 @@ def seed_data():
         print("Error in /seed route:", str(e))
         return jsonify({'error': 'Internal Server Error'}), 500
 
-
-# Frontend Route
-@app.route('/')
-def serve_frontend():
-    return send_from_directory(app.static_folder, 'index.html')
-
 from sqlalchemy.sql import text
 
-try:
-    with app.app_context():
-        db.session.execute(text('SELECT 1'))
-        print("Database connection successful.")
-except Exception as e:
-    print("Database connection error:", str(e))
+with app.app_context():
+    db.create_all()
+
+
 
 if __name__ == "__main__":
-    app.run(debug=True, port=8000)
+    app.run(debug=True, host="0.0.0.0", port=8000)

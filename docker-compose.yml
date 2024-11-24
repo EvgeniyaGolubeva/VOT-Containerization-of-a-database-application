@@ -1,0 +1,25 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SQLALCHEMY_DATABASE_URI: "mysql+pymysql://root:testpass@db/app_db"
+  db:
+    image: mysql:9.1
+    environment:
+      MYSQL_ROOT_PASSWORD: testpass
+      MYSQL_DATABASE: app_db
+    ports:
+      - "3306:3306"
+    command: ["mysqld"]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
